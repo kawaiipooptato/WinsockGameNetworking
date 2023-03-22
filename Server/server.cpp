@@ -9,7 +9,7 @@
 #define PORT 1234
 std::string ip = "127.0.0.1";
 
-#define USE_TCP TRUE
+#define USE_TCP FALSE
 
 #if USE_TCP
 void handleClient(SOCKET clientSocket) {
@@ -179,10 +179,34 @@ int main() {
         threads.push_back(std::thread(handleClient, clientSocket));
     }
 #else
-   
+    // When creating a UDP server, you don't need to listen for incoming connections
+    // You can just start handling clients immediately
+
+    std::vector<std::thread> threads;
+
+    // Create a sockaddr_in to store the client address
+    sockaddr_in clientAddr;
+    int addrLen = sizeof(clientAddr);
+
+    // Enter receive loop
+    while (true) {
+		// Receive a message from a client
+		char buffer[BUFFER_SIZE];
+		int result = recvfrom(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, &addrLen);
+        if (result == SOCKET_ERROR) {
+			std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
+			closesocket(serverSocket);
+			WSACleanup();
+			return 1;
+		}
+		// Console output for debugging
+		std::cout << "Received message from " << inet_ntoa(clientAddr.sin_addr) << std::endl;
+
+		// Spawn a thread to handle the client
+		threads.push_back(std::thread(handleClient, serverSocket, clientAddr));
+	}
 #endif
     
-
     // Clean up
     closesocket(serverSocket);
     WSACleanup();

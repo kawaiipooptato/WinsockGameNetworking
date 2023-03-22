@@ -10,7 +10,7 @@
 #define TICK_RATE 30 // In Hz
 std::string ip = "127.0.0.1";
 
-#define USE_TCP TRUE
+#define USE_TCP FALSE
 
 int main() {
     // Initialize Winsock
@@ -61,21 +61,6 @@ int main() {
         WSACleanup();
         return 1;
     }
-
-#if USE_TCP
-#else
-    // If using UDP, send a packet to the server to indicate that we are ready to receive
-    // send "ready" message to server
-    strcpy_s(buffer, "ready");
-    result = send(clientSocket, buffer, BUFFER_SIZE, 0);
-    if (result == SOCKET_ERROR) {
-		std::cerr << "send failed: " << WSAGetLastError() << std::endl;
-		closesocket(clientSocket);
-		WSACleanup();
-		return 1;
-	}
-    std::cout << "Sent ready message to server" << std::endl;
-#endif
 
     // Parse initial state from buffer
     // ...
