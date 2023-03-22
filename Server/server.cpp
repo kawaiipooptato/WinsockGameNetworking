@@ -9,6 +9,9 @@
 #define PORT 1234
 std::string ip = "127.0.0.1";
 
+#define USE_TCP TRUE
+
+#if USE_TCP
 void handleClient(SOCKET clientSocket) {
     char buffer[BUFFER_SIZE];
     int result;
@@ -55,6 +58,55 @@ void handleClient(SOCKET clientSocket) {
     // Clean up
     closesocket(clientSocket);
 }
+#else
+void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
+    char buffer[BUFFER_SIZE];
+    int result;
+
+    // Send initial state to client
+    // ...
+    // Populate buffer with initial state
+    // ...
+    result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
+    if (result == SOCKET_ERROR) {
+        std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
+        closesocket(clientSocket);
+        return;
+    }
+
+    // Enter game loop
+    while (true) {
+        // Receive input from client
+        int addrLen = sizeof(clientAddr);
+        result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, &addrLen);
+        if (result == SOCKET_ERROR) {
+            std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
+            closesocket(clientSocket);
+            return;
+        }
+
+        // Update game state based on client input
+        // ...
+
+        // Update game state based on server logic
+        // ...
+
+        // Send updated game state to client
+        // ...
+        // Populate buffer with updated game state
+        // ...
+        result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
+        if (result == SOCKET_ERROR) {
+            std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
+            closesocket(clientSocket);
+            return;
+        }
+    }
+
+    // Clean up
+    closesocket(clientSocket);
+}
+#endif
 
 int main() {
     // Initialize Winsock
@@ -65,13 +117,23 @@ int main() {
         return 1;
     }
 
-    // Create a socket
-    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, 0);
+#if USE_TCP
+    // Create a TCP socket
+    SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET) {
         std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
         WSACleanup();
         return 1;
     }
+#else
+    // Create a UDP socket
+    SOCKET serverSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (serverSocket == INVALID_SOCKET) {
+		std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
+		WSACleanup();
+		return 1;
+	}
+#endif
 
     // Bind the socket to a local address and port
     sockaddr_in serverAddr;
@@ -87,6 +149,7 @@ int main() {
         return 1;
     }
 
+#if USE_TCP
     // Listen for incoming connections
     result = listen(serverSocket, SOMAXCONN);
     if (result == SOCKET_ERROR) {
@@ -115,6 +178,10 @@ int main() {
         // Spawn a thread to handle the client
         threads.push_back(std::thread(handleClient, clientSocket));
     }
+#else
+   
+#endif
+    
 
     // Clean up
     closesocket(serverSocket);

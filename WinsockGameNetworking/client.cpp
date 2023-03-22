@@ -10,6 +10,8 @@
 #define TICK_RATE 30 // In Hz
 std::string ip = "127.0.0.1";
 
+#define USE_TCP TRUE
+
 int main() {
     // Initialize Winsock
     WSADATA wsaData;
@@ -18,14 +20,23 @@ int main() {
         std::cerr << "WSAStartup failed: " << result << std::endl;
         return 1;
     }
-
-    // Create a socket
-    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, 0);
+#if USE_TCP
+    // Create a TCP socket
+    SOCKET clientSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (clientSocket == INVALID_SOCKET) {
         std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
         WSACleanup();
         return 1;
     }
+#else
+    // Create a UDP socket
+	SOCKET clientSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    if (clientSocket == INVALID_SOCKET) {
+		std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
+		WSACleanup();
+		return 1;
+	}
+#endif
 
     // Connect to the server
     sockaddr_in serverAddr;
@@ -50,6 +61,21 @@ int main() {
         WSACleanup();
         return 1;
     }
+
+#if USE_TCP
+#else
+    // If using UDP, send a packet to the server to indicate that we are ready to receive
+    // send "ready" message to server
+    strcpy_s(buffer, "ready");
+    result = send(clientSocket, buffer, BUFFER_SIZE, 0);
+    if (result == SOCKET_ERROR) {
+		std::cerr << "send failed: " << WSAGetLastError() << std::endl;
+		closesocket(clientSocket);
+		WSACleanup();
+		return 1;
+	}
+    std::cout << "Sent ready message to server" << std::endl;
+#endif
 
     // Parse initial state from buffer
     // ...
