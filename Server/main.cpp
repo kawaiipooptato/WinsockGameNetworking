@@ -109,6 +109,9 @@ int main() {
             return 1;
         }
 
+        // Console output for debugging
+        std::cout << "Client connected from " << inet_ntoa(serverAddr.sin_addr) << std::endl;
+
         // Spawn a thread to handle the client
         threads.push_back(std::thread(handleClient, clientSocket));
     }
