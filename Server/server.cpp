@@ -58,54 +58,6 @@ void handleClient(SOCKET clientSocket) {
     // Clean up
     closesocket(clientSocket);
 }
-#else
-void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
-    char buffer[BUFFER_SIZE] = "Hello from server!";
-    int result;
-
-    // Send initial state to client
-    // ...
-    // Populate buffer with initial state
-    // ...
-    result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
-    if (result == SOCKET_ERROR) {
-        std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
-        closesocket(clientSocket);
-        return;
-    }
-
-    // Enter game loop
-    while (true) {
-        // Receive input from client
-        int addrLen = sizeof(clientAddr);
-        result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, &addrLen);
-        if (result == SOCKET_ERROR) {
-            std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
-            closesocket(clientSocket);
-            return;
-        }
-
-        // Update game state based on client input
-        // ...
-
-        // Update game state based on server logic
-        // ...
-
-        // Send updated game state to client
-        // ...
-        // Populate buffer with updated game state
-        // ...
-        result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, sizeof(clientAddr));
-        if (result == SOCKET_ERROR) {
-            std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
-            closesocket(clientSocket);
-            return;
-        }
-    }
-
-    // Clean up
-    closesocket(clientSocket);
-}
 #endif
 
 int main() {
@@ -183,8 +135,9 @@ int main() {
 #else
     // When creating a UDP server, you don't need to listen for incoming connections
     // You can just start handling clients immediately
-
-    std::vector<std::thread> threads;
+    
+    // Container for clients
+    std::vector<sockaddr_in> clients;
 
     // Enter receive loop
     while (true) {
@@ -201,10 +154,30 @@ int main() {
         }
 
 		// Console output for debugging
-		std::cout << "Received message from " << inet_ntoa(clientAddr.sin_addr) << std::endl;
+		std::cout << "New message from " << inet_ntoa(clientAddr.sin_addr) << std::endl;
 
-		// Spawn a thread to handle the client
-		threads.push_back(std::thread(handleClient, serverSocket, clientAddr));
+        // Check if client is already in the list
+		bool clientExists = false;
+        for (int i = 0; i < clients.size(); i++) {
+            if (clients[i].sin_addr.s_addr == clientAddr.sin_addr.s_addr) {
+				clientExists = true;
+				break;
+			}
+		}
+		// If client is not in the list, add it
+        if (!clientExists) 
+			clients.push_back(clientAddr);
+		
+		// Send message to all clients
+        for (int i = 0; i < clients.size(); i++) {
+			result = sendto(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clients[i], sizeof(clients[i]));
+            if (result == SOCKET_ERROR) {
+				std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
+				closesocket(serverSocket);
+				WSACleanup();
+				return 1;
+			}
+		}
 	}
 #endif
     

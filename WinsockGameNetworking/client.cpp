@@ -73,27 +73,6 @@ int main() {
         WSACleanup();
         return 1;
     }
-#else
-    // Send UDP datagram to server to establish connection
-    char buffer[BUFFER_SIZE];
-    result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
-    if (result == SOCKET_ERROR) {
-		std::cerr << "origin packet sendto failed: " << WSAGetLastError() << std::endl;
-		/*closesocket(clientSocket);
-		WSACleanup();
-		return 1;*/
-	}
-
-    // Receive initial state from server
-	sockaddr_in fromAddr;
-	int fromAddrSize = sizeof(fromAddr);
-	result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
-	if (result == SOCKET_ERROR) {
-		std::cerr << "initial state recvfrom failed: " << WSAGetLastError() << std::endl;
-		/*closesocket(clientSocket);
-		WSACleanup();
-		return 1;*/
-	}
 #endif
 
     // Parse initial state from buffer
@@ -128,6 +107,7 @@ int main() {
             return 1;
         }
 #else
+        char buffer[BUFFER_SIZE];
         // Send input to server
 		result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
         if (result == SOCKET_ERROR) {
@@ -136,6 +116,7 @@ int main() {
 			WSACleanup();
 			return 1;*/
 		}
+
 		// Receive updated game state from server
 		sockaddr_in fromAddr;
 		int fromAddrSize = sizeof(fromAddr);
