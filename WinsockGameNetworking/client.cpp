@@ -13,6 +13,8 @@ std::string ip = "127.0.0.1";
 #define USE_TCP FALSE
 
 int main() {
+    std::cout << "Client started" << std::endl;
+
     // Initialize Winsock
     WSADATA wsaData;
     int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -36,14 +38,24 @@ int main() {
 		WSACleanup();
 		return 1;
 	}
-#endif
 
-    // Connect to the server
+    // Set socket to non-blocking mode
+    u_long nonBlockingMode = 1;
+    if (ioctlsocket(clientSocket, FIONBIO, &nonBlockingMode) != 0) {
+        std::cerr << "ioctlsocket failed: " << WSAGetLastError() << std::endl;
+        closesocket(clientSocket);
+        WSACleanup();
+        return 1;
+    }
+#endif
+    // Server address
     sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(PORT);
     serverAddr.sin_addr.s_addr = inet_addr(ip.c_str());
 
+#if USE_TCP
+    // Connect to server
     result = connect(clientSocket, (sockaddr*)&serverAddr, sizeof(serverAddr));
     if (result == SOCKET_ERROR) {
         std::cerr << "connect failed: " << WSAGetLastError() << std::endl;
@@ -61,6 +73,28 @@ int main() {
         WSACleanup();
         return 1;
     }
+#else
+    // Send UDP datagram to server to establish connection
+    char buffer[BUFFER_SIZE];
+    result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+    if (result == SOCKET_ERROR) {
+		std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
+		closesocket(clientSocket);
+		WSACleanup();
+		return 1;
+	}
+
+    // Receive initial state from server
+	sockaddr_in fromAddr;
+	int fromAddrSize = sizeof(fromAddr);
+	result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
+	if (result == SOCKET_ERROR) {
+		std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
+		closesocket(clientSocket);
+		WSACleanup();
+		return 1;
+	}
+#endif
 
     // Parse initial state from buffer
     // ...
@@ -75,7 +109,7 @@ int main() {
         // ...
         // Populate buffer with player input
         // ...
-
+#if USE_TCP
         // Send input to server
         result = send(clientSocket, buffer, BUFFER_SIZE, 0);
         if (result == SOCKET_ERROR) {
@@ -93,6 +127,26 @@ int main() {
             WSACleanup();
             return 1;
         }
+#else
+        // Send input to server
+		result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+        if (result == SOCKET_ERROR) {
+			std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
+			closesocket(clientSocket);
+			WSACleanup();
+			return 1;
+		}
+		// Receive updated game state from server
+		sockaddr_in fromAddr;
+		int fromAddrSize = sizeof(fromAddr);
+		result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
+        if (result == SOCKET_ERROR) {
+			std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
+			closesocket(clientSocket);
+			WSACleanup();
+			return 1;
+		}
+#endif
 
         // Parse updated game state from buffer
         // ...
@@ -108,7 +162,7 @@ int main() {
         // Note: this should be done on the client side only, without server input
         // ...
 
-        // Compare predicted game state to actual game state received from server
+        // Compare predicted game state to actual game state     received from server
         // ...
         // Update local game state with actual game state
         // ...

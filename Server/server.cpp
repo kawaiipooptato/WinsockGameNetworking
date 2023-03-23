@@ -60,7 +60,7 @@ void handleClient(SOCKET clientSocket) {
 }
 #else
 void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
-    char buffer[BUFFER_SIZE];
+    char buffer[BUFFER_SIZE] = "Hello from server!";
     int result;
 
     // Send initial state to client
@@ -109,6 +109,8 @@ void handleClient(SOCKET clientSocket, sockaddr_in clientAddr) {
 #endif
 
 int main() {
+    std::cout << "Starting server..." << std::endl;
+
     // Initialize Winsock
     WSADATA wsaData;
     int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
@@ -184,21 +186,20 @@ int main() {
 
     std::vector<std::thread> threads;
 
-    // Create a sockaddr_in to store the client address
-    sockaddr_in clientAddr;
-    int addrLen = sizeof(clientAddr);
-
     // Enter receive loop
     while (true) {
-		// Receive a message from a client
-		char buffer[BUFFER_SIZE];
-		int result = recvfrom(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, &addrLen);
+        // Receive a datagram from a client
+        sockaddr_in clientAddr;
+        int clientAddrSize = sizeof(clientAddr);
+        char buffer[BUFFER_SIZE];
+        result = recvfrom(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, &clientAddrSize);
         if (result == SOCKET_ERROR) {
-			std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
-			closesocket(serverSocket);
-			WSACleanup();
-			return 1;
-		}
+            std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
+            closesocket(serverSocket);
+            WSACleanup();
+            return 1;
+        }
+
 		// Console output for debugging
 		std::cout << "Received message from " << inet_ntoa(clientAddr.sin_addr) << std::endl;
 
