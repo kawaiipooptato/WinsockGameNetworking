@@ -68,7 +68,7 @@ int main() {
     char buffer[BUFFER_SIZE];
     result = recv(clientSocket, buffer, BUFFER_SIZE, 0);
     if (result == SOCKET_ERROR) {
-        std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+        std::cerr << "initial state recv failed: " << WSAGetLastError() << std::endl;
         closesocket(clientSocket);
         WSACleanup();
         return 1;
@@ -78,10 +78,10 @@ int main() {
     char buffer[BUFFER_SIZE];
     result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
     if (result == SOCKET_ERROR) {
-		std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
-		closesocket(clientSocket);
+		std::cerr << "origin packet sendto failed: " << WSAGetLastError() << std::endl;
+		/*closesocket(clientSocket);
 		WSACleanup();
-		return 1;
+		return 1;*/
 	}
 
     // Receive initial state from server
@@ -89,10 +89,10 @@ int main() {
 	int fromAddrSize = sizeof(fromAddr);
 	result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
 	if (result == SOCKET_ERROR) {
-		std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
-		closesocket(clientSocket);
+		std::cerr << "initial state recvfrom failed: " << WSAGetLastError() << std::endl;
+		/*closesocket(clientSocket);
 		WSACleanup();
-		return 1;
+		return 1;*/
 	}
 #endif
 
@@ -113,7 +113,7 @@ int main() {
         // Send input to server
         result = send(clientSocket, buffer, BUFFER_SIZE, 0);
         if (result == SOCKET_ERROR) {
-            std::cerr << "send failed: " << WSAGetLastError() << std::endl;
+            std::cerr << "input send failed: " << WSAGetLastError() << std::endl;
             closesocket(clientSocket);
             WSACleanup();
             return 1;
@@ -122,7 +122,7 @@ int main() {
         // Receive updated game state from server
         result = recv(clientSocket, buffer, BUFFER_SIZE, 0);
         if (result == SOCKET_ERROR) {
-            std::cerr << "recv failed: " << WSAGetLastError() << std::endl;
+            std::cerr << "update recv failed: " << WSAGetLastError() << std::endl;
             closesocket(clientSocket);
             WSACleanup();
             return 1;
@@ -131,20 +131,20 @@ int main() {
         // Send input to server
 		result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
         if (result == SOCKET_ERROR) {
-			std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
-			closesocket(clientSocket);
+			std::cerr << "input sendto failed: " << WSAGetLastError() << std::endl;
+			/*closesocket(clientSocket);
 			WSACleanup();
-			return 1;
+			return 1;*/
 		}
 		// Receive updated game state from server
 		sockaddr_in fromAddr;
 		int fromAddrSize = sizeof(fromAddr);
 		result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
         if (result == SOCKET_ERROR) {
-			std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
-			closesocket(clientSocket);
+			std::cerr << "update recvfrom failed: " << WSAGetLastError() << std::endl;
+			/*closesocket(clientSocket);
 			WSACleanup();
-			return 1;
+			return 1;*/
 		}
 #endif
 
