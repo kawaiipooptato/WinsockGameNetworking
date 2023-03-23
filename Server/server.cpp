@@ -3,11 +3,12 @@
 #include <winsock2.h>
 #include <iostream>
 #include <vector>
-#include <thread>
+#include <chrono>
 
 #define BUFFER_SIZE 512
 #define PORT 1234
 std::string ip = "127.0.0.1";
+int timeoutInSeconds = 60;
 
 int main() {
     std::cout << "Starting server..." << std::endl;
@@ -46,7 +47,7 @@ int main() {
     // You can just start handling clients immediately
     
     // Container for clients
-    std::vector<sockaddr_in> clients;
+    std::vector<std::pair<sockaddr_in, std::chrono::time_point<std::chrono::system_clock>>> clients;
 
     // Enter receive loop
     while (true) {
@@ -62,35 +63,39 @@ int main() {
             return 1;
         }
 
-		// Console output for debugging
-		std::cout << "New message from " << inet_ntoa(clientAddr.sin_addr) << std::endl;
-
         // Check if client is already in the list
 		bool clientExists = false;
-        for (int i = 0; i < clients.size(); i++) {
-            if (clients[i].sin_addr.s_addr == clientAddr.sin_addr.s_addr) {
+        for (auto& client : clients) {
+            if (client.first.sin_addr.s_addr == clientAddr.sin_addr.s_addr) {
 				clientExists = true;
 				break;
 			}
 		}
+
 		// If client is not in the list, add it
-        if (!clientExists) 
-			clients.push_back(clientAddr);
-		
-		// Send message to all clients
-        for (int i = 0; i < clients.size(); i++) {
-			result = sendto(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clients[i], sizeof(clients[i]));
-            if (result == SOCKET_ERROR) {
-				std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
-				closesocket(serverSocket);
-				WSACleanup();
-				return 1;
-			}
+        if (!clientExists)
+			clients.push_back(std::make_pair(clientAddr, std::chrono::system_clock::now()));
+
+		// Send a response to the client
+		result = sendto(serverSocket, buffer, result, 0, (sockaddr*)&clientAddr, clientAddrSize);
+        if (result == SOCKET_ERROR) {
+			std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
+			closesocket(serverSocket);
+			WSACleanup();
+			return 1;
+		}
+		// Remove clients that have not sent a message in the last 60 seconds
+        for (auto it = clients.begin(); it != clients.end();) {
+            if (std::chrono::duration_cast<std::chrono::seconds>(std::chrono::system_clock::now() - it->second).count() > timeoutInSeconds)
+				it = clients.erase(it);
+            else 
+				++it;
 		}
 	}
-    
-    // Clean up
-    closesocket(serverSocket);
-    WSACleanup();
-    return 0;
+
+	// Clean up
+	closesocket(serverSocket);
+	WSACleanup();
+	return 0;
 }
+    
