@@ -4,11 +4,23 @@
 #include <iostream>
 #include <chrono>
 #include <thread>
+#include <stdexcept>
 
 #define BUFFER_SIZE 512
 #define PORT 1234
 #define TICK_RATE 30 // In Hz
 std::string ip = "127.0.0.1";
+
+struct GameState {
+    int playerX;
+    int playerY;
+    // add any other game state variables here
+};
+
+void printLastError(const std::string& message) {
+    int error = WSAGetLastError();
+    std::cerr << message << " Error code: " << error << std::endl;
+}
 
 int main() {
     std::cout << "Client started" << std::endl;
@@ -17,25 +29,19 @@ int main() {
     WSADATA wsaData;
     int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
     if (result != 0) {
-        std::cerr << "WSAStartup failed: " << result << std::endl;
-        return 1;
+        printLastError("WSAStartup failed");
     }
 
     // Create a UDP socket
-	SOCKET clientSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+    SOCKET clientSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (clientSocket == INVALID_SOCKET) {
-		std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
-		WSACleanup();
-		return 1;
-	}
+        printLastError("socket failed");
+    }
 
     // Set socket to non-blocking mode
     u_long nonBlockingMode = 1;
     if (ioctlsocket(clientSocket, FIONBIO, &nonBlockingMode) != 0) {
-        std::cerr << "ioctlsocket failed: " << WSAGetLastError() << std::endl;
-        closesocket(clientSocket);
-        WSACleanup();
-        return 1;
+        printLastError("ioctlsocket failed");
     }
 
     // Server address
@@ -59,24 +65,18 @@ int main() {
         // ...
         char buffer[BUFFER_SIZE];
         // Send input to server
-		result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
+        result = sendto(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&serverAddr, sizeof(serverAddr));
         if (result == SOCKET_ERROR) {
-			std::cerr << "input sendto failed: " << WSAGetLastError() << std::endl;
-			/*closesocket(clientSocket);
-			WSACleanup();
-			return 1;*/
-		}
+            printLastError("input sendto failed");
+        }
 
-		// Receive updated game state from server
-		sockaddr_in fromAddr;
-		int fromAddrSize = sizeof(fromAddr);
-		result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
+        // Receive updated game state from server
+        sockaddr_in fromAddr;
+        int fromAddrSize = sizeof(fromAddr);
+        result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
         if (result == SOCKET_ERROR) {
-			std::cerr << "update recvfrom failed: " << WSAGetLastError() << std::endl;
-			/*closesocket(clientSocket);
-			WSACleanup();
-			return 1;*/
-		}
+            printLastError("update recvfrom failed");
+        }
 
         // Parse updated game state from buffer
         // ...
@@ -92,7 +92,7 @@ int main() {
         // Note: this should be done on the client side only, without server input
         // ...
 
-        // Compare predicted game state to actual game state     received from server
+        // Compare predicted game state to actual game state received from server
         // ...
         // Update local game state with actual game state
         // ...
