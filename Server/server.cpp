@@ -9,9 +9,6 @@
 #define PORT 1234
 std::string ip = "127.0.0.1";
 
-#define USE_TCP FALSE
-
-#if USE_TCP
 void handleClient(SOCKET clientSocket) {
     char buffer[BUFFER_SIZE];
     int result;
@@ -58,7 +55,6 @@ void handleClient(SOCKET clientSocket) {
     // Clean up
     closesocket(clientSocket);
 }
-#endif
 
 int main() {
     std::cout << "Starting server..." << std::endl;
@@ -71,7 +67,6 @@ int main() {
         return 1;
     }
 
-#if USE_TCP
     // Create a TCP socket
     SOCKET serverSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (serverSocket == INVALID_SOCKET) {
@@ -79,15 +74,6 @@ int main() {
         WSACleanup();
         return 1;
     }
-#else
-    // Create a UDP socket
-    SOCKET serverSocket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-    if (serverSocket == INVALID_SOCKET) {
-		std::cerr << "socket failed: " << WSAGetLastError() << std::endl;
-		WSACleanup();
-		return 1;
-	}
-#endif
 
     // Bind the socket to a local address and port
     sockaddr_in serverAddr;
@@ -103,7 +89,6 @@ int main() {
         return 1;
     }
 
-#if USE_TCP
     // Listen for incoming connections
     result = listen(serverSocket, SOMAXCONN);
     if (result == SOCKET_ERROR) {
@@ -132,54 +117,6 @@ int main() {
         // Spawn a thread to handle the client
         threads.push_back(std::thread(handleClient, clientSocket));
     }
-#else
-    // When creating a UDP server, you don't need to listen for incoming connections
-    // You can just start handling clients immediately
-    
-    // Container for clients
-    std::vector<sockaddr_in> clients;
-
-    // Enter receive loop
-    while (true) {
-        // Receive a datagram from a client
-        sockaddr_in clientAddr;
-        int clientAddrSize = sizeof(clientAddr);
-        char buffer[BUFFER_SIZE];
-        result = recvfrom(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clientAddr, &clientAddrSize);
-        if (result == SOCKET_ERROR) {
-            std::cerr << "recvfrom failed: " << WSAGetLastError() << std::endl;
-            closesocket(serverSocket);
-            WSACleanup();
-            return 1;
-        }
-
-		// Console output for debugging
-		std::cout << "New message from " << inet_ntoa(clientAddr.sin_addr) << std::endl;
-
-        // Check if client is already in the list
-		bool clientExists = false;
-        for (int i = 0; i < clients.size(); i++) {
-            if (clients[i].sin_addr.s_addr == clientAddr.sin_addr.s_addr) {
-				clientExists = true;
-				break;
-			}
-		}
-		// If client is not in the list, add it
-        if (!clientExists) 
-			clients.push_back(clientAddr);
-		
-		// Send message to all clients
-        for (int i = 0; i < clients.size(); i++) {
-			result = sendto(serverSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&clients[i], sizeof(clients[i]));
-            if (result == SOCKET_ERROR) {
-				std::cerr << "sendto failed: " << WSAGetLastError() << std::endl;
-				closesocket(serverSocket);
-				WSACleanup();
-				return 1;
-			}
-		}
-	}
-#endif
     
     // Clean up
     closesocket(serverSocket);
