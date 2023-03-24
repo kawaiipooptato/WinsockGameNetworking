@@ -5,6 +5,8 @@
 #include <chrono>
 #include <thread>
 #include <stdexcept>
+#include <mutex>
+#include <queue>
 
 #define BUFFER_SIZE 512
 #define PORT 1234
@@ -17,9 +19,35 @@ struct GameState {
     // add any other game state variables here
 };
 
+// Global message queue for incoming packets
+std::mutex g_queueMutex;
+std::queue<char*> g_packetQueue;
+
 void printLastError(const std::string& message) {
     int error = WSAGetLastError();
     std::cerr << message << " Error code: " << error << std::endl;
+}
+
+// Function to receive packets in a separate thread
+void receivePacketsThread(sockaddr_in fromAddr, SOCKET socket) {
+    while (true) {
+        // Allocate a buffer to receive the incoming packet
+        char buffer[BUFFER_SIZE];
+        int fromAddrSize = sizeof(fromAddr);
+
+        // Receive the incoming packet
+        int result = recvfrom(socket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
+        if (result != SOCKET_ERROR) {
+            // Lock the message queue and add the packet to the queue
+            std::lock_guard<std::mutex> lock(g_queueMutex);
+            g_packetQueue.push(buffer);
+            std::cout << "received" << std::endl;
+        }
+        else {
+            // Handle errors
+            printLastError("recvfrom failed");
+        }
+    }
 }
 
 int main() {
@@ -55,6 +83,9 @@ int main() {
     // Populate local game state with initial state
     // ...
 
+    // Create the receive thread and start it
+    std::thread recvThread(receivePacketsThread, serverAddr, clientSocket);
+
     // Enter game loop
     std::chrono::milliseconds tickInterval(static_cast<int>(1000.0 / TICK_RATE));
     auto nextTick = std::chrono::steady_clock::now() + tickInterval;
@@ -70,36 +101,24 @@ int main() {
             printLastError("input sendto failed");
         }
 
-        // Receive updated game state from server
-        sockaddr_in fromAddr;
-        int fromAddrSize = sizeof(fromAddr);
-        result = recvfrom(clientSocket, buffer, BUFFER_SIZE, 0, (sockaddr*)&fromAddr, &fromAddrSize);
-        if (result == SOCKET_ERROR) {
-            printLastError("update recvfrom failed");
+        // Process any incoming packets from the message queue
+        std::lock_guard<std::mutex> lock(g_queueMutex);
+        while (!g_packetQueue.empty()) {
+            auto packet = g_packetQueue.front();
+            g_packetQueue.pop();
+            // Process the incoming packet
+             // ...
         }
 
-        // Parse updated game state from buffer
-        // ...
-        // Save predicted game state locally
-        // ...
-
-        // Wait until the next tick
+        // Sleep until the next tick
         std::this_thread::sleep_until(nextTick);
         nextTick += tickInterval;
-
-        // Update predicted game state based on player input
-        // ...
-        // Note: this should be done on the client side only, without server input
-        // ...
-
-        // Compare predicted game state to actual game state received from server
-        // ...
-        // Update local game state with actual game state
-        // ...
     }
 
     // Clean up
+    recvThread.join();
     closesocket(clientSocket);
     WSACleanup();
+
     return 0;
 }
