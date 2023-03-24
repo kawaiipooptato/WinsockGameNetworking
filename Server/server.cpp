@@ -9,7 +9,7 @@
 #define BUFFER_SIZE 512
 #define PORT 1234
 std::string ip = "127.0.0.1";
-int timeoutInSeconds = 60;
+int timeoutInSeconds = 3;
 SOCKET serverSocket;
 
 struct GameState {
@@ -80,6 +80,8 @@ int main() {
             for (auto& client : clients) {
                 if (client.first.sin_addr.s_addr == clientAddr.sin_addr.s_addr) {
                     clientExists = true;
+                    // Update the last received time
+                    client.second = std::chrono::system_clock::now();
                     break;
                 }
             }
